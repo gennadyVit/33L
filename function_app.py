@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from azure.communication.email import EmailClient
 
 import azure.functions as func
 import pandas as pd
@@ -129,6 +130,27 @@ def write_to_blob(df: pd.DataFrame):
     run_on_startup=False,
     use_monitor=True,
 )
+
+def send_email(df: pd.DataFrame) -> None:
+    conn_str = os.environ["ACS_CONNECTION_STRING"]
+    sender = os.environ["SENDER_EMAIL"]
+    recipient = os.environ["RECIPIENT_EMAIL"]
+    
+    client = EmailClient.from_connection_string(conn_str)
+    
+    html = df[df['likelihood'].isin(['High', 'Possible'])].to_html(index=False)
+    
+    message = {
+        "senderAddress": sender,
+        "recipients": {"to": [{"address": recipient}]},
+        "content": {
+            "subject": f"33L Forecast {datetime.now(EASTERN).strftime('%a %b %d')}",
+            "html": f"<h2>33L Overhead Forecast</h2>{html}"
+        }
+    }
+    
+    client.begin_send(message)
+
 def predict_overhead(timer: func.TimerRequest) -> None:
     logging.info("Forecast run starting")
     api_key = os.environ["OPENWEATHER_API_KEY"]
@@ -137,4 +159,5 @@ def predict_overhead(timer: func.TimerRequest) -> None:
     df = fill_single_hour_gaps(df) 
     logging.info("Built dataframe with %d rows", len(df))
     write_to_blob(df)
+    send_email(df)
     logging.info("Forecast run complete")
