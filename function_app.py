@@ -124,22 +124,15 @@ def write_to_blob(df: pd.DataFrame):
         .upload_blob(data, overwrite=True)
 
 
-@app.timer_trigger(
-    schedule="0 0 11 * * *",   # 11:00 UTC = 7 AM EDT / 6 AM EST
-    arg_name="timer",
-    run_on_startup=False,
-    use_monitor=True,
-)
-
 def send_email(df: pd.DataFrame) -> None:
     conn_str = os.environ["ACS_CONNECTION_STRING"]
     sender = os.environ["SENDER_EMAIL"]
     recipient = os.environ["RECIPIENT_EMAIL"]
-    
+
     client = EmailClient.from_connection_string(conn_str)
-    
+
     html = df[df['likelihood'].isin(['High', 'Possible'])].to_html(index=False)
-    
+
     message = {
         "senderAddress": sender,
         "recipients": {"to": [{"address": recipient}]},
@@ -148,16 +141,28 @@ def send_email(df: pd.DataFrame) -> None:
             "html": f"<h2>33L Overhead Forecast</h2>{html}"
         }
     }
-    
-    client.begin_send(message)
 
+    poller = client.begin_send(message)
+    result = poller.result()  # block until sent; raises on failure
+    logging.info("Email sent, message id: %s", result.get("id"))
+
+
+@app.timer_trigger(
+    schedule="0 0 11 * * *",   # 11:00 UTC = 7 AM EDT / 6 AM EST
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
 def predict_overhead(timer: func.TimerRequest) -> None:
     logging.info("Forecast run starting")
     api_key = os.environ["OPENWEATHER_API_KEY"]
     entries = fetch_forecast(api_key)
     df = build_dataframe(entries)
-    df = fill_single_hour_gaps(df) 
+    df = fill_single_hour_gaps(df)
     logging.info("Built dataframe with %d rows", len(df))
     write_to_blob(df)
-    send_email(df)
+    try:
+        send_email(df)
+    except Exception:
+        logging.exception("Email send failed — forecast still written to blob")
     logging.info("Forecast run complete")
