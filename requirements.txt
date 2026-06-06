@@ -5,3 +5,4 @@ pyarrow
 pytz
 requests
 azure-communication-email
+cryptography==43.0.3
