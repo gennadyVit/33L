@@ -132,7 +132,18 @@ def send_email(df: pd.DataFrame) -> None:
     client = EmailClient.from_connection_string(conn_str)
 
     display_cols = [c for c in df.columns if c not in ('forecast_run_utc', 'noisy_window')]
-    html = df[df['likelihood'].isin(['High', 'Possible'])][display_cols].to_html(index=False)
+    filtered = df[df['likelihood'].isin(['High', 'Possible'])][display_cols].reset_index(drop=True)
+
+    # Build HTML table manually to add double border between days
+    header = ''.join(f'<th style="border:1px solid black;padding:4px">{c}</th>' for c in filtered.columns)
+    rows_html = ''
+    prev_date = None
+    for _, row in filtered.iterrows():
+        border_top = 'border-top:3px double black;' if prev_date and row['date'] != prev_date else ''
+        cells = ''.join(f'<td style="border:1px solid black;padding:4px;{border_top}">{v}</td>' for v in row)
+        rows_html += f'<tr>{cells}</tr>'
+        prev_date = row['date']
+    html = f'<table style="border-collapse:collapse"><thead><tr>{header}</tr></thead><tbody>{rows_html}</tbody></table>'
 
     message = {
         "senderAddress": sender,
