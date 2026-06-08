@@ -131,7 +131,8 @@ def send_email(df: pd.DataFrame) -> None:
 
     client = EmailClient.from_connection_string(conn_str)
 
-    html = df[df['likelihood'].isin(['High', 'Possible'])].to_html(index=False)
+    display_cols = [c for c in df.columns if c not in ('forecast_run_utc', 'noisy_window')]
+    html = df[df['likelihood'].isin(['High', 'Possible'])][display_cols].to_html(index=False)
 
     message = {
         "senderAddress": sender,
