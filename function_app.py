@@ -131,7 +131,7 @@ def send_email(df: pd.DataFrame) -> None:
 
     client = EmailClient.from_connection_string(conn_str)
 
-    display_cols = ['date', 'day', 'hour_label', 'likelihood', 'percentage_likelihood', 'wind_deg', 'wind_speed_ms', 'hour_24', 'forecast_time_local']
+    display_cols = ['date', 'day', 'hour_label', 'likelihood', 'percentage_likelihood', 'wind_deg', 'wind_speed_ms'] #, 'hour_24', 'forecast_time_local']
     filtered = df[df['likelihood'].isin(['High', 'Possible'])].sort_values('forecast_time_local')[display_cols].reset_index(drop=True)
 
     # Build HTML table manually to add double border between days
